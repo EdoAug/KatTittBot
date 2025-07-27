@@ -4,6 +4,8 @@ const auth = require('./auth.json');
 const sandbox = 'User:KatTittBot/sandkasse';
 const language = "no"
 
+const cron = require('node-cron');
+
 const bot = new Mwn({
     apiUrl: 'https://no.wikipedia.org/w/api.php',
 	
@@ -42,37 +44,43 @@ const bot = new Mwn({
 	"rvdir": "newer"
 }*/
 
-bot.login().then(() => {
-	console.log("Logged in!");
-	//TestEdit();
-	
-	MostPopular(20, sandbox, 1).then((res) => {
-		for (let i = 0; i < res.length; i++) {
-			res[i] = "{{Bruker:EdoAug/FFTT/Mal:Artikkellenke|artikkel="+res[i]+"}}";
-		}
-		bot.save(sandbox, res.join(" "), 'Legger inn eksempelsformatert liste over mest leste sider basert på nyeste tilgjengelig statistikkdump.');
+    // Schedule a task to run every hour
+cron.schedule('0 30 * * * *', () => {
+
+	bot.login().then(() => {
+		console.log("Logged in!");
+		//TestEdit();
+		
+		MostPopular(20, sandbox, 1).then((res) => {
+			for (let i = 0; i < res.length; i++) {
+				res[i] = "{{Bruker:EdoAug/FFTT/Mal:Artikkellenke|artikkel="+res[i]+"}}";
+			}
+			bot.save(sandbox, res.join(" "), 'Legger inn eksempelsformatert liste over mest leste sider basert på nyeste tilgjengelig statistikkdump.');
+		});
+		const cattygory = "Kategori:Brett- og kortspill";
+		RedLinksTestTwo(cattygory, "0").then((res) => {
+			let page = new bot.Page("User:KatTittBot/test");
+			console.log(res);
+			/*const gaggoo = res;
+			gaggoo = Object.entries(...gaggoo);
+			res = gaggoo.filter(x => x[1] > 1);*/
+			let prepend = '{| class="wikitable sortable" \n|+ Gjentatte røde lenker under [[:'+cattygory+'|'+cattygory.replace("Kategori:","")+']]\n! Lenke !! Antall\n|-\n|';
+			let append = '\n|}';
+			res = Object.entries(res).map(x => "[["+x[0]+"]]||"+x[1] ).join("\n|-\n|").toString();
+			page.save(prepend+res+append).catch((err) => console.log("Could not create page:",err));
+		});
+		
+		/*RedLinksInCategoryTree("Brett- og kortspill", "0").then((res) => {
+			//console.log(res.sort());
+			TitleCounter(res).then((res) => {
+				console.table(res);
+			})
+		}).catch((err) => {console.log(err)});*/
+		
 	});
-	const cattygory = "Kategori:Brett- og kortspill";
-	RedLinksTestTwo(cattygory, "0").then((res) => {
-		let page = new bot.Page("User:KatTittBot/test");
-		console.log(res);
-		/*const gaggoo = res;
-		gaggoo = Object.entries(...gaggoo);
-		res = gaggoo.filter(x => x[1] > 1);*/
-		let prepend = '{| class="wikitable sortable" \n|+ Gjentatte røde lenker under [[:'+cattygory+'|'+cattygory.replace("Kategori:","")+']]\n! Lenke !! Antall\n|-\n|';
-		let append = '\n|}';
-		res = Object.entries(res).map(x => "[["+x[0]+"]]||"+x[1] ).join("\n|-\n|").toString();
-		page.save(prepend+res+append).catch((err) => console.log("Could not create page:",err));
-	});
-	
-	/*RedLinksInCategoryTree("Brett- og kortspill", "0").then((res) => {
-		//console.log(res.sort());
-		TitleCounter(res).then((res) => {
-			console.table(res);
-		})
-	}).catch((err) => {console.log(err)});*/
-	
 });
+
+console.log('Running a script at the bottom of every hour! Hold on!');
 
 async function RedLinksTestTwo(category="Kategori:Skeive emner", namespace) {
 	return new Promise((resolve) => {
