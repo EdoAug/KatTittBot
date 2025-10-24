@@ -44,43 +44,62 @@ const bot = new Mwn({
 	"rvdir": "newer"
 }*/
 
-    // Schedule a task to run every hour
-cron.schedule('0 30 * * * *', () => {
 
-	bot.login().then(() => {
-		console.log("Logged in!");
-		//TestEdit();
+bot.login().then(() => {
+  
+	console.log("Logged in!");
+	//TestEdit();
 		
-		MostPopular(20, sandbox, 1).then((res) => {
+	// Look for most popular pages API results every hour at the bottom of the hour.
+	cron.schedule('0 30 * * * *', () => {
+		MostPopular(8, sandbox, 1).then((res) => {
+			let topRead = [];
 			for (let i = 0; i < res.length; i++) {
+				topRead.push(res[i]);
 				res[i] = "{{Bruker:EdoAug/FFTT/Mal:Artikkellenke|artikkel="+res[i]+"}}";
 			}
-			bot.save(sandbox, res.join(" "), 'Legger inn eksempelsformatert liste over mest leste sider basert på nyeste tilgjengelig statistikkdump.');
+			//bot.save(sandbox, res.join(" "), 'Legger inn eksempelsformatert liste over mest leste sider basert på nyeste tilgjengelig statistikkdump.');
+			console.log('Most popular, doneso.');
+			return [topRead, res.join(" ")];
+		}).then((mostRead) => {
+			console.log(mostRead);
+			let oddReads; // A variable storing the surprisingly most read articles, based on function tree below.
+			MostPopular(50, "User:KatTittBot/Mest_leste 1", 1).then((res) => {
+				oddReads = res;
+				MostPopular(50, "User:KatTittBot/Mest_leste 2", 2).then((res) => {
+					oddReads = oddReads.concat(res);
+					MostPopular(50, "User:KatTittBot/Mest_leste 3", 3).then((res) => {
+						oddReads = oddReads.concat(res);
+						oddReads = oddReads.filter(function(obj) {
+							return oddReads.lastIndexOf(obj) == oddReads.indexOf(obj) && !mostRead[0].includes(obj);
+						});
+						oddReads.length = 8;
+						for (let i = 0; i < oddReads.length; i++) {
+							oddReads[i] = "{{Bruker:EdoAug/FFTT/Mal:Artikkellenke|artikkel="+oddReads[i]+"}}";
+						}
+						bot.save("User:KatTittBot/Mest_leste", ("== Mest lest for tida ==\n" + mostRead[1] + "\n== Snålt populære ==\n" + oddReads.join(" ")), 'Test av mest leste og snålt populære artikler siste døgn.');
+						console.log('Most popular, but weird, doneso.');
+					});
+				});
+			});
 		});
-		const cattygory = "Kategori:Brett- og kortspill";
-		RedLinksTestTwo(cattygory, "0").then((res) => {
-			let page = new bot.Page("User:KatTittBot/test");
-			console.log(res);
-			/*const gaggoo = res;
-			gaggoo = Object.entries(...gaggoo);
-			res = gaggoo.filter(x => x[1] > 1);*/
-			let prepend = '{| class="wikitable sortable" \n|+ Gjentatte røde lenker under [[:'+cattygory+'|'+cattygory.replace("Kategori:","")+']]\n! Lenke !! Antall\n|-\n|';
-			let append = '\n|}';
-			res = Object.entries(res).map(x => "[["+x[0]+"]]||"+x[1] ).join("\n|-\n|").toString();
-			page.save(prepend+res+append).catch((err) => console.log("Could not create page:",err));
-		});
-		
-		/*RedLinksInCategoryTree("Brett- og kortspill", "0").then((res) => {
-			//console.log(res.sort());
-			TitleCounter(res).then((res) => {
-				console.table(res);
-			})
-		}).catch((err) => {console.log(err)});*/
-		
 	});
+	/*const cattygory = "Kategori:Brett- og kortspill";
+	RedLinksTestTwo(cattygory, "0").then((res) => {
+		let page = new bot.Page("User:KatTittBot/test");
+		console.log(res);
+		let prepend = '{| class="wikitable sortable" \n|+ Gjentatte røde lenker under [[:'+cattygory+'|'+cattygory.replace("Kategori:","")+']]\n! Lenke !! Antall\n|-\n|';
+		let append = '\n|}';
+		res = Object.entries(res).map(x => "[["+x[0]+"]]||"+x[1] ).join("\n|-\n|").toString();
+		page.save(prepend+res+append).catch((err) => console.log("Could not create page:",err));
+	});*/
+	/*RedLinksInCategoryTree("Brett- og kortspill", "0").then((res) => {
+		//console.log(res.sort());
+		TitleCounter(res).then((res) => {
+			console.table(res);
+		})
+	}).catch((err) => {console.log(err)});*/
 });
-
-console.log('Running a script at the bottom of every hour! Hold on!');
 
 async function RedLinksTestTwo(category="Kategori:Skeive emner", namespace) {
 	return new Promise((resolve) => {
@@ -186,7 +205,7 @@ async function MostPopular(amount = 4, page = sandbox, days = 2) {
 				for (let i = 0; topArticles.length < amount; i++) {
 					let add = true;
 					for (let t = 0; t < ignoredPages.length; t++) {
-						if (result[i].article === ignoredPages[t] || result[i].article.match(/[SWKP]\w+:/)) {
+						if (result[i].article === ignoredPages[t] || result[i].article.match(/[SWKPF]\w+:/)) {
 							// filtering out nonos and non-mainspace pages.............
 							//console.log("NOT:",result[i].article);
 							add = false;
